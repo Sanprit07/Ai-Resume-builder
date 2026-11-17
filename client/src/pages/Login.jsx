@@ -129,10 +129,6 @@ const Login = () => {
                 </button>
               </div>
 
-              <p className="mt-8 text-center text-sm text-slate-400">
-                Don’t have an account?{' '}
-                <a href="#" className="font-semibold text-indigo-300 hover:text-indigo-200">Create one</a>
-              </p>
             </div>
           </div>
         </div>
