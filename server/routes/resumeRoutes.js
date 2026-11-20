@@ -3,31 +3,42 @@ const express = require("express");
 const router = express.Router();
 
 const Resume = require("../models/Resume");
+const protect = require("../middleware/authMiddleware");
+
+// All resume routes require login
+router.use(protect);
 
 // CREATE a new resume
 router.post("/", async (req, res) => {
   try {
-    const resume = await Resume.create(req.body);
+    const resume = await Resume.create({
+      ...req.body,
+      user: req.userId,
+    });
+
     res.status(201).json(resume);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// READ all resumes
+// READ all resumes belonging to logged-in user
 router.get("/", async (req, res) => {
   try {
-    const resumes = await Resume.find();
+    const resumes = await Resume.find({ user: req.userId });
     res.json(resumes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// READ one resume
+// READ one resume belonging to logged-in user
 router.get("/:id", async (req, res) => {
   try {
-    const resume = await Resume.findById(req.params.id);
+    const resume = await Resume.findOne({
+      _id: req.params.id,
+      user: req.userId,
+    });
 
     if (!resume) {
       return res.status(404).json({ message: "Resume not found" });
@@ -39,13 +50,15 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// UPDATE a resume
+// UPDATE a resume belonging to logged-in user
 router.put("/:id", async (req, res) => {
   try {
-    const resume = await Resume.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {returnDocument: 'after',runValidators: true}
+    const { user, ...updates } = req.body;
+
+    const resume = await Resume.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
+      updates,
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!resume) {
@@ -58,10 +71,13 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE a resume
+// DELETE a resume belonging to logged-in user
 router.delete("/:id", async (req, res) => {
   try {
-    const resume = await Resume.findByIdAndDelete(req.params.id);
+    const resume = await Resume.findOneAndDelete({
+      _id: req.params.id,
+      user: req.userId,
+    });
 
     if (!resume) {
       return res.status(404).json({ message: "Resume not found" });

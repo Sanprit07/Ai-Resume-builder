@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Printer } from 'lucide-react'
 
+const API_URL = 'http://localhost:5001/api/resumes'
+
 const Preview = () => {
   const { resumeId } = useParams()
   const navigate = useNavigate()
@@ -10,15 +12,18 @@ const Preview = () => {
   const [resume, setResume] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Load resume from MongoDB
   useEffect(() => {
     const fetchResume = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:5001/api/resumes/${resumeId}`
-        )
+        const response = await fetch(`${API_URL}/${resumeId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        })
 
         if (!response.ok) {
-          throw new Error('Resume not found')
+          throw new Error('Resume not found or access denied')
         }
 
         const data = await response.json()
@@ -27,7 +32,7 @@ const Preview = () => {
       } catch (error) {
         console.error('Error loading resume:', error)
         alert('Could not load resume preview.')
-        navigate('/app')
+        navigate('/app', { replace: true })
       } finally {
         setLoading(false)
       }

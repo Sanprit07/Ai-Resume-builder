@@ -12,6 +12,8 @@ import {
   CheckCircle
 } from 'lucide-react'
 
+const API_URL = 'http://localhost:5001/api/resumes'
+
 const ResumeBuilder = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -36,16 +38,22 @@ const ResumeBuilder = () => {
     skills: ''
   })
 
+  // Authentication headers
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token')}`
+  })
+
   // Load resume from MongoDB
   useEffect(() => {
     const fetchResume = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:5001/api/resumes/${id}`
-        )
+        const response = await fetch(`${API_URL}/${id}`, {
+          headers: getHeaders()
+        })
 
         if (!response.ok) {
-          throw new Error('Resume not found')
+          throw new Error('Resume not found or access denied')
         }
 
         const data = await response.json()
@@ -107,28 +115,17 @@ const ResumeBuilder = () => {
 
   // Save resume to MongoDB
   const handleSave = async () => {
-    console.log('SAVE BUTTON CLICKED')
-    console.log('Resume ID:', id)
-    console.log('Data being saved:', formData)
-
     if (saving) return
 
     setSaving(true)
     setSaved(false)
 
     try {
-      const response = await fetch(
-        `http://localhost:5001/api/resumes/${id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        }
-      )
-
-      console.log('Response status:', response.status)
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(formData)
+      })
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -154,7 +151,6 @@ const ResumeBuilder = () => {
       })
 
       setSaved(true)
-      console.log('Resume saved successfully!')
 
     } catch (error) {
       console.error('Error saving resume:', error)
@@ -176,10 +172,8 @@ const ResumeBuilder = () => {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6">
 
-        
         {/* Top Navigation */}
         <div className="flex items-center justify-between gap-4 mb-8">
-
           <button
             onClick={() => navigate('/app')}
             className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors"
@@ -189,7 +183,6 @@ const ResumeBuilder = () => {
           </button>
 
           <div className="flex items-center gap-3">
-
             <button
               onClick={() => navigate(`/view/${id}`)}
               className="flex items-center gap-2 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-5 py-2.5 rounded-lg text-sm font-medium"
@@ -205,10 +198,8 @@ const ResumeBuilder = () => {
               <Save size={17} />
               {saving ? 'Saving...' : 'Save Resume'}
             </button>
-
           </div>
         </div>
-
 
         {/* Page Heading */}
         <div className="mb-8">

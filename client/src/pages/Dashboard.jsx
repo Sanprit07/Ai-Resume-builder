@@ -14,29 +14,63 @@ const API_URL = 'http://localhost:5001/api/resumes'
 
 const Dashboard = () => {
   const navigate = useNavigate()
+
   const [resumes, setResumes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [userName, setUserName] = useState('User')
+
+  // Authentication headers
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token')}`
+  })
 
   // Load resumes from MongoDB
   const fetchResumes = async () => {
     try {
-      const response = await fetch(API_URL)
+      const response = await fetch(API_URL, {
+        headers: getHeaders()
+      })
 
       if (!response.ok) {
-        throw new Error('Failed to load resumes')
+        throw new Error(
+          response.status === 401
+            ? 'Your session has expired. Please log in again.'
+            : 'Failed to load resumes'
+        )
       }
 
       const data = await response.json()
       setResumes(data)
     } catch (error) {
       console.error('Error loading resumes:', error)
-      alert('Could not load resumes. Check whether the backend is running.')
+      alert(error.message)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('http://localhost:5001/api/auth/me', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Could not fetch user details')
+        }
+
+        const data = await response.json()
+        setUserName(data.name)
+      } catch (error) {
+        console.error('Error fetching user:', error)
+      }
+    }
+
+    fetchUser()
     fetchResumes()
   }, [])
 
@@ -61,9 +95,7 @@ const Dashboard = () => {
 
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getHeaders(),
         body: JSON.stringify(newResume)
       })
 
@@ -78,7 +110,7 @@ const Dashboard = () => {
       navigate(`/app/builder/${createdResume._id}`)
     } catch (error) {
       console.error('Error creating resume:', error)
-      alert('Could not create resume. Check whether the backend is running.')
+      alert(error.message)
     }
   }
 
@@ -92,7 +124,8 @@ const Dashboard = () => {
 
     try {
       const response = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       })
 
       if (!response.ok) {
@@ -104,7 +137,7 @@ const Dashboard = () => {
       )
     } catch (error) {
       console.error('Error deleting resume:', error)
-      alert('Could not delete resume.')
+      alert(error.message)
     }
   }
 
@@ -128,7 +161,7 @@ const Dashboard = () => {
 
           <div>
             <p className="text-2xl font-semibold mb-2 bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
-              Welcome, John Doe
+              Welcome, {userName}
             </p>
 
             <p className="text-slate-500 text-sm">
@@ -222,7 +255,6 @@ const Dashboard = () => {
 
         ) : (
 
-          /* Empty State */
           <div className="bg-white border border-dashed border-slate-300 rounded-xl py-16 px-5 text-center">
 
             <div className="bg-indigo-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5">
