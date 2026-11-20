@@ -10,66 +10,108 @@ import {
   ArrowRight
 } from 'lucide-react'
 
+const API_URL = 'http://localhost:5001/api/resumes'
+
 const Dashboard = () => {
   const navigate = useNavigate()
   const [resumes, setResumes] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Load resumes from localStorage
+  // Load resumes from MongoDB
+  const fetchResumes = async () => {
+    try {
+      const response = await fetch(API_URL)
+
+      if (!response.ok) {
+        throw new Error('Failed to load resumes')
+      }
+
+      const data = await response.json()
+      setResumes(data)
+    } catch (error) {
+      console.error('Error loading resumes:', error)
+      alert('Could not load resumes. Check whether the backend is running.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const savedResumes = JSON.parse(
-      localStorage.getItem('resumes') || '[]'
-    )
-    setResumes(savedResumes)
+    fetchResumes()
   }, [])
 
   // Create a new resume
-  const createResume = () => {
-    const id = Date.now().toString()
+  const createResume = async () => {
+    try {
+      const newResume = {
+        title: 'Untitled Resume',
+        personalInfo: {
+          fullName: '',
+          email: '',
+          phone: '',
+          address: '',
+          profession: '',
+          summary: ''
+        },
+        experience: '',
+        education: '',
+        projects: '',
+        skills: ''
+      }
 
-    const newResume = {
-      id,
-      title: 'Untitled Resume',
-      updatedAt: new Date().toISOString(),
-      personalInfo: {
-        fullName: '',
-        email: '',
-        phone: '',
-        address: '',
-        profession: '',
-        summary: ''
-      },
-      experience: '',
-      education: '',
-      projects: '',
-      skills: ''
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newResume)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create resume')
+      }
+
+      const createdResume = await response.json()
+
+      setResumes((prev) => [...prev, createdResume])
+
+      navigate(`/app/builder/${createdResume._id}`)
+    } catch (error) {
+      console.error('Error creating resume:', error)
+      alert('Could not create resume. Check whether the backend is running.')
     }
-
-    const updatedResumes = [...resumes, newResume]
-
-    localStorage.setItem('resumes', JSON.stringify(updatedResumes))
-    setResumes(updatedResumes)
-
-    navigate(`/app/builder/${id}`)
   }
 
   // Delete a resume
-  const deleteResume = (id) => {
+  const deleteResume = async (id) => {
     const confirmDelete = window.confirm(
       'Are you sure you want to delete this resume?'
     )
 
     if (!confirmDelete) return
 
-    const updatedResumes = resumes.filter(
-      (resume) => resume.id !== id
-    )
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE'
+      })
 
-    localStorage.setItem('resumes', JSON.stringify(updatedResumes))
-    setResumes(updatedResumes)
+      if (!response.ok) {
+        throw new Error('Failed to delete resume')
+      }
+
+      setResumes((prev) =>
+        prev.filter((resume) => resume._id !== id)
+      )
+    } catch (error) {
+      console.error('Error deleting resume:', error)
+      alert('Could not delete resume.')
+    }
   }
 
   // Format date
   const formatDate = (date) => {
+    if (!date) return 'Recently'
+
     return new Date(date).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -115,15 +157,19 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* Resume Cards */}
-        {resumes.length > 0 ? (
+        {/* Loading */}
+        {loading ? (
+
+          <p className="text-slate-500 text-sm">Loading resumes...</p>
+
+        ) : resumes.length > 0 ? (
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
             {resumes.map((resume) => (
 
               <div
-                key={resume.id}
+                key={resume._id}
                 className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg transition-all"
               >
 
@@ -134,7 +180,7 @@ const Dashboard = () => {
                   </div>
 
                   <button
-                    onClick={() => deleteResume(resume.id)}
+                    onClick={() => deleteResume(resume._id)}
                     className="text-slate-400 hover:text-red-500 transition-colors"
                     title="Delete resume"
                   >
@@ -155,7 +201,7 @@ const Dashboard = () => {
                 <div className="border-t border-slate-100 mt-5 pt-4">
 
                   <button
-                    onClick={() => navigate(`/app/builder/${resume.id}`)}
+                    onClick={() => navigate(`/app/builder/${resume._id}`)}
                     className="flex items-center justify-between w-full text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                   >
                     <span className="flex items-center gap-2">

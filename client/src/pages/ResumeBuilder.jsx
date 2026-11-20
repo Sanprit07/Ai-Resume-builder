@@ -17,10 +17,11 @@ const ResumeBuilder = () => {
   const navigate = useNavigate()
 
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     title: 'Untitled Resume',
-
     personalInfo: {
       fullName: '',
       email: '',
@@ -29,28 +30,52 @@ const ResumeBuilder = () => {
       profession: '',
       summary: ''
     },
-
     experience: '',
     education: '',
     projects: '',
     skills: ''
   })
 
-  // Load existing resume
+  // Load resume from MongoDB
   useEffect(() => {
-    const savedResumes = JSON.parse(
-      localStorage.getItem('resumes') || '[]'
-    )
+    const fetchResume = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5001/api/resumes/${id}`
+        )
 
-    const existingResume = savedResumes.find(
-      (resume) => resume.id === id
-    )
+        if (!response.ok) {
+          throw new Error('Resume not found')
+        }
 
-    if (existingResume) {
-      setFormData(existingResume)
-    } else {
-      navigate('/app', { replace: true })
+        const data = await response.json()
+
+        setFormData({
+          title: data.title || 'Untitled Resume',
+          personalInfo: {
+            fullName: data.personalInfo?.fullName || '',
+            email: data.personalInfo?.email || '',
+            phone: data.personalInfo?.phone || '',
+            address: data.personalInfo?.address || '',
+            profession: data.personalInfo?.profession || '',
+            summary: data.personalInfo?.summary || ''
+          },
+          experience: data.experience || '',
+          education: data.education || '',
+          projects: data.projects || '',
+          skills: data.skills || ''
+        })
+
+      } catch (error) {
+        console.error('Error loading resume:', error)
+        alert('Could not load this resume.')
+        navigate('/app', { replace: true })
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchResume()
   }, [id, navigate])
 
   // Handle normal input changes
@@ -80,35 +105,78 @@ const ResumeBuilder = () => {
     setSaved(false)
   }
 
-  // Save resume
-  const handleSave = () => {
-    const savedResumes = JSON.parse(
-      localStorage.getItem('resumes') || '[]'
-    )
+  // Save resume to MongoDB
+  const handleSave = async () => {
+    console.log('SAVE BUTTON CLICKED')
+    console.log('Resume ID:', id)
+    console.log('Data being saved:', formData)
 
-    const updatedResume = {
-      ...formData,
-      id,
-      updatedAt: new Date().toISOString()
+    if (saving) return
+
+    setSaving(true)
+    setSaved(false)
+
+    try {
+      const response = await fetch(
+        `http://localhost:5001/api/resumes/${id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        }
+      )
+
+      console.log('Response status:', response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to save resume')
+      }
+
+      const updatedResume = await response.json()
+
+      setFormData({
+        title: updatedResume.title || 'Untitled Resume',
+        personalInfo: {
+          fullName: updatedResume.personalInfo?.fullName || '',
+          email: updatedResume.personalInfo?.email || '',
+          phone: updatedResume.personalInfo?.phone || '',
+          address: updatedResume.personalInfo?.address || '',
+          profession: updatedResume.personalInfo?.profession || '',
+          summary: updatedResume.personalInfo?.summary || ''
+        },
+        experience: updatedResume.experience || '',
+        education: updatedResume.education || '',
+        projects: updatedResume.projects || '',
+        skills: updatedResume.skills || ''
+      })
+
+      setSaved(true)
+      console.log('Resume saved successfully!')
+
+    } catch (error) {
+      console.error('Error saving resume:', error)
+      alert(`Could not save resume: ${error.message}`)
+    } finally {
+      setSaving(false)
     }
+  }
 
-    const updatedResumes = savedResumes.map((resume) =>
-      resume.id === id ? updatedResume : resume
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-slate-600">Loading resume...</p>
+      </div>
     )
-
-    localStorage.setItem(
-      'resumes',
-      JSON.stringify(updatedResumes)
-    )
-
-    setSaved(true)
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-
       <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6">
 
+        
         {/* Top Navigation */}
         <div className="flex items-center justify-between gap-4 mb-8">
 
@@ -120,22 +188,33 @@ const ResumeBuilder = () => {
             <span className="text-sm font-medium">Back to Dashboard</span>
           </button>
 
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95"
-          >
-            <Save size={17} />
-            Save Resume
-          </button>
+          <div className="flex items-center gap-3">
 
+            <button
+              onClick={() => navigate(`/view/${id}`)}
+              className="flex items-center gap-2 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-5 py-2.5 rounded-lg text-sm font-medium"
+            >
+              Preview
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all"
+            >
+              <Save size={17} />
+              {saving ? 'Saving...' : 'Save Resume'}
+            </button>
+
+          </div>
         </div>
+
 
         {/* Page Heading */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-semibold text-slate-800">
             Resume Builder
           </h1>
-
           <p className="text-sm text-slate-500 mt-2">
             Fill in your details to create your professional resume.
           </p>
@@ -151,35 +230,29 @@ const ResumeBuilder = () => {
 
         {/* Resume Title */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Resume Title
           </label>
-
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleChange}
             placeholder="e.g. Software Developer Resume"
-            className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
           />
-
         </div>
 
         {/* Personal Information */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-indigo-50 p-2.5 rounded-lg">
               <User size={22} className="text-indigo-600" />
             </div>
-
             <div>
               <h2 className="text-lg font-semibold text-slate-800">
                 Personal Information
               </h2>
-
               <p className="text-xs text-slate-500">
                 Add your basic contact details.
               </p>
@@ -187,12 +260,8 @@ const ResumeBuilder = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Full Name
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
               <input
                 name="fullName"
                 value={formData.personalInfo.fullName}
@@ -203,10 +272,7 @@ const ResumeBuilder = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Profession
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Profession</label>
               <input
                 name="profession"
                 value={formData.personalInfo.profession}
@@ -217,10 +283,7 @@ const ResumeBuilder = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Email Address
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
               <input
                 type="email"
                 name="email"
@@ -232,10 +295,7 @@ const ResumeBuilder = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Phone Number
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
               <input
                 type="tel"
                 name="phone"
@@ -247,10 +307,7 @@ const ResumeBuilder = () => {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Address
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Address</label>
               <input
                 name="address"
                 value={formData.personalInfo.address}
@@ -261,10 +318,7 @@ const ResumeBuilder = () => {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Professional Summary
-              </label>
-
+              <label className="block text-sm font-medium text-slate-700 mb-2">Professional Summary</label>
               <textarea
                 name="summary"
                 value={formData.personalInfo.summary}
@@ -274,29 +328,22 @@ const ResumeBuilder = () => {
                 className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
               />
             </div>
-
           </div>
         </section>
 
         {/* Experience */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-
           <div className="flex items-center gap-3 mb-5">
             <div className="bg-indigo-50 p-2.5 rounded-lg">
               <Briefcase size={22} className="text-indigo-600" />
             </div>
-
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
-                Work Experience
-              </h2>
-
+              <h2 className="text-lg font-semibold text-slate-800">Work Experience</h2>
               <p className="text-xs text-slate-500">
                 Describe your previous work experience or internships.
               </p>
             </div>
           </div>
-
           <textarea
             name="experience"
             value={formData.experience}
@@ -305,28 +352,21 @@ const ResumeBuilder = () => {
             placeholder="Job Title | Company Name&#10;Duration&#10;Describe your responsibilities and achievements..."
             className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
           />
-
         </section>
 
         {/* Education */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-
           <div className="flex items-center gap-3 mb-5">
             <div className="bg-indigo-50 p-2.5 rounded-lg">
               <GraduationCap size={22} className="text-indigo-600" />
             </div>
-
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
-                Education
-              </h2>
-
+              <h2 className="text-lg font-semibold text-slate-800">Education</h2>
               <p className="text-xs text-slate-500">
                 Add your academic qualifications.
               </p>
             </div>
           </div>
-
           <textarea
             name="education"
             value={formData.education}
@@ -335,28 +375,21 @@ const ResumeBuilder = () => {
             placeholder="Degree / Course&#10;Institution Name&#10;Start Year - End Year&#10;Relevant achievements..."
             className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
           />
-
         </section>
 
         {/* Projects */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-
           <div className="flex items-center gap-3 mb-5">
             <div className="bg-indigo-50 p-2.5 rounded-lg">
               <Code size={22} className="text-indigo-600" />
             </div>
-
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
-                Projects
-              </h2>
-
+              <h2 className="text-lg font-semibold text-slate-800">Projects</h2>
               <p className="text-xs text-slate-500">
                 Showcase your projects and technical contributions.
               </p>
             </div>
           </div>
-
           <textarea
             name="projects"
             value={formData.projects}
@@ -365,28 +398,21 @@ const ResumeBuilder = () => {
             placeholder="Project Name&#10;Technologies Used&#10;Project description and features..."
             className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
           />
-
         </section>
 
         {/* Skills */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 mb-8">
-
           <div className="flex items-center gap-3 mb-5">
             <div className="bg-indigo-50 p-2.5 rounded-lg">
               <Lightbulb size={22} className="text-indigo-600" />
             </div>
-
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
-                Skills
-              </h2>
-
+              <h2 className="text-lg font-semibold text-slate-800">Skills</h2>
               <p className="text-xs text-slate-500">
                 Add your technical and professional skills.
               </p>
             </div>
           </div>
-
           <textarea
             name="skills"
             value={formData.skills}
@@ -395,20 +421,18 @@ const ResumeBuilder = () => {
             placeholder="JavaScript, React, Node.js, Python, SQL, Communication..."
             className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
           />
-
         </section>
 
         {/* Bottom Save Button */}
         <div className="flex justify-end mb-10">
-
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-7 py-3 rounded-lg font-medium transition-all active:scale-95 shadow-md shadow-indigo-200"
+            disabled={saving}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-7 py-3 rounded-lg font-medium transition-all active:scale-95 shadow-md shadow-indigo-200"
           >
             <Save size={18} />
-            Save Resume
+            {saving ? 'Saving...' : 'Save Resume'}
           </button>
-
         </div>
 
       </div>
