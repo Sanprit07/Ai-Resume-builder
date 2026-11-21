@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Lock,
@@ -116,6 +117,16 @@ const Login = () => {
           {/* Right Section */}
           <div className="bg-slate-950/80 p-6 sm:p-8 lg:p-10">
             <div className="mx-auto max-w-md">
+
+              {/* Back to Home Button */}
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Home
+              </button>
 
               <div className="mb-8">
                 <p className="text-sm uppercase tracking-[0.2em] text-violet-300">
